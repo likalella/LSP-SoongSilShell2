@@ -9,7 +9,7 @@
 
 void ssu_shell(){
 	int argc=0;
-	char *argv[50];
+	char *argv[110];
 	char buf[2600] = {0, };
 	char buf2[2600] = {0, };
 	char *str;
