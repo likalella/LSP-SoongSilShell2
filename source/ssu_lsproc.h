@@ -3,15 +3,15 @@
 
 struct lsproc_opt{
 	int is_f;
-	int f_pid[16];
+	pid_t f_pid[16];
 	int is_t;
-	int t_pid[16];
+	pid_t t_pid[16];
 	int is_c;
-	int c_pid[16];
+	pid_t c_pid[16];
 	int is_n;
-	int n_pid[16];
+	pid_t n_pid[16];
 	int is_m;
-	int m_pid[16];
+	pid_t m_pid[16];
 	int is_k;
 	char *key[16];
 	int is_w;
@@ -29,8 +29,9 @@ struct lsproc_opt{
 	char *o_fname;
 };
 
-int ssu_lsproc(int argc, char *argv[]);
+void ssu_lsproc(int argc, char *argv[]);
 void init_lsproc(struct lsproc_opt *);
 int parsing_lsproc(int argc, char*argv[], struct lsproc_opt *);
+int optionF(pid_t pid);
 
 #endif

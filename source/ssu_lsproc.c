@@ -3,37 +3,126 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <dirent.h>
+#include <sys/wait.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include "ssu_lsproc.h"
 #include "ssu_usage.h"
 #include "ssu_test.h"
+#include "ssu_function.h"
 
-int ssu_lsproc(int argc, char* argv[]){
+void ssu_lsproc(int argc, char* argv[]){
 	struct lsproc_opt opt;
 	char befoOpt='\0';
 	int i, rst;
+	int pid, status;
 	init_lsproc(&opt);
 
 	// parsing
 	if((rst = parsing_lsproc(argc, argv, &opt)) < 0){
 		lsprocUsage();
-		return -1;
+		return;
 	}
-	ssu_test(&opt);
+
+	// check parsing
+	//ssu_test(&opt);
 
 	// start lsproc
-	/*printf(">: ssu_lsproc start. :<\n");
+	printf(">: ssu_lsproc start. :<\n");
+	
+	// f : 
+	if(opt.is_f >= 0){
+		pid = fork();
+		if(pid > 0){		// parents
+			wait(&status);
+		}
+		else if(pid == 0){	// child
+			if(opt.is_f == 0){
+				opt.f_pid[0] = getpid();
+				opt.is_f++;
+			}
 
-	if((rst=access("file_name", F_OK)) < 0){ // not exist
-		printf("/path/ doesn't read\n");
-	}
+			for(i=0; i<opt.is_f; i++){
+				if(opt.is_f > 1)
+					printf("([/proc/%d/fd])\n", opt.f_pid[i]);
+				rst = optionF(opt.f_pid[i]);
+			}
 
-	if((rst=access("file_name", R_OK)) < 0){	// not read
-		printf("/path/ can't be read.\n");
+			exit(1);
+		}
+		else{				//fork err
+		}
 	}
 
 	printf(">: ssu_lsproc terminated. :<\n");
-	*/
+}
+
+int optionF(pid_t pid){
+	int i, len, rst, p, d;
+	char path1[10];
+	char path2[21]="/proc/";
+	char *fd = "/fd";
+	char *nPath;
+	char linkfile[30];
+	DIR *dp;
+	struct dirent *dirp;
+	struct stat statbuf;
+
+	ssu_atoi(pid, path1);
+	len = strlen(path1);
+	for(int i=0; i<len; i++)
+		path2[6+i] = path1[i];
+	path2[6+len] = '\0';
+	strcat(path2, fd);
 	
+	if((rst=access(path2, F_OK)) < 0){	// not exist
+		printf("%s doesn't read.\n", path2);
+		return 1;
+	}
+	if((rst=access(path2, R_OK)) < 0){	// can't read
+		printf("%s can't be read.\n", path2);
+		return 1;
+	}
+
+	if((dp = opendir(path2)) == NULL){	// check opendir() err
+		// print err msg	
+		return 1;	
+	}
+	while((dirp = readdir(dp)) != NULL){
+		if(strcmp(dirp->d_name, ".") == 0){
+			continue;
+		}
+		if(strcmp(dirp->d_name, "..") == 0){
+			continue;
+		}
+		p = strlen(path2);
+		d = strlen(dirp->d_name);
+		
+		nPath = (char *)malloc(p+d+2);
+		memset(nPath, '\0', p+d+2);
+		strcpy(nPath, path2);
+		nPath[p] = '/';
+		strcpy(&nPath[p+1], dirp->d_name);
+		nPath[p+d+1] = '\0';
+		
+		if(lstat(nPath, &statbuf) < 0){	// check stat() err
+			// print err msg
+			return 1;		
+		}
+		
+		if(S_ISLNK(statbuf.st_mode) != 0){
+			memset(linkfile, 0, 30);
+			if(rst = readlink(nPath, linkfile, 30) < 0){ //check readlink() err
+				// print err msg;
+				continue;	
+			}
+			printf("File Descriptor: %s, Opened File: %s\n", dirp->d_name, linkfile);
+		}
+		
+		free(nPath);
+	}
+	closedir(dp);
 }
 
 void init_lsproc(struct lsproc_opt *opt){
@@ -124,7 +213,7 @@ int parsing_lsproc(int argc, char* argv[], struct lsproc_opt * opt){
 					break;
 				case 'm':
 					if(opt->is_m >= 0) return -1;
-					while(++i < argc && argv[i][0] != '-'){
+					while(++i < argc && argv[i][0] != '-' && isdigit(argv[i][0])){
 						if(n > 15) return -1;
 						opt->m_pid[n] = atoi(argv[i]);
 						n++;
