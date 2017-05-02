@@ -63,7 +63,7 @@ void ssu_lsproc(int argc, char* argv[]){
 		if(pid > 0){	// parents
 			wait(&status);
 		}
-		else if(pid == 0){
+		else if(pid == 0){	// child
 			if(opt.is_t == 0){
 				opt.t_pid[0] = getpid();
 				opt.is_t++;
@@ -88,7 +88,7 @@ void ssu_lsproc(int argc, char* argv[]){
 		if(pid > 0){	// parents
 			wait(&status);
 		}
-		else if(pid == 0){
+		else if(pid == 0){	// child
 			if(opt.is_c == 0){
 				opt.c_pid[0] = getpid();
 				opt.is_c++;
@@ -107,18 +107,49 @@ void ssu_lsproc(int argc, char* argv[]){
 		}
 	}
 
+	// option n :
+	if(opt.is_n >= 0){
+		pid = fork();
+		if(pid > 0){	// parents
+			wait(&status);
+		}
+		else if(pid == 0){	//child
+			if(opt.is_n == 0){
+				opt.n_pid[0] = getpid();
+				opt.is_n++;
+			}
+
+			for(i=0; i<opt.is_n; i++){
+				if(opt.is_n > 1)
+					printf("([/proc/%d/io])\n", opt.n_pid[i]);
+				rst = optionN(opt.n_pid[i]);
+			}
+			exit(1);	// child end
+		}
+		else{	//fork err
+			fprintf(stderr, "fork() err\n");
+			return;
+		}
+	}
+
 	printf(">: ssu_lsproc terminated. :<\n");
 }
 
-int optionC(pid_t pid){
+int optionN(pid_t pid){
 	int i, len, rst;
-	char c;
 	char path1[10];
-	char path2[30]="/proc/";
-	char *cmdline = "/cmdline";
+	char path2[21]="/proc/";
+	char *io = "/io";
+	char str1[30];
+	char str2[30];
 	char *nPath;
-	char linkfile[30];
-	char buf[1040];
+	char *rchar = "rchar:";
+	char *wchar = "wchar:";
+	char *syscr = "syscr:";
+	char *syscw = "syscw:";
+	char *read_bytes = "read_bytes:";
+	char *write_bytes = "write_bytes:";
+	char *cancelled_write_bytes = "cancelled_write_bytes:";
 	FILE *fp;
 
 	ssu_atoi(pid, path1);
@@ -126,7 +157,7 @@ int optionC(pid_t pid){
 	for(int i=0; i<len; i++)
 		path2[6+i] = path1[i];
 	path2[6+len] = '\0';
-	strcat(path2, cmdline);
+	strcat(path2, io);
 	
 	if((rst=access(path2, F_OK)) < 0){	// not exist
 		printf("%s doesn't read.\n", path2);
@@ -136,37 +167,52 @@ int optionC(pid_t pid){
 		printf("%s can't be read.\n", path2);
 		return 1;
 	}
-	
-	if((fp = fopen(path2, "r")) == NULL){
+
+	if((fp=fopen(path2, "r")) == NULL){
 		fprintf(stderr, "fopen() err\n");
 		return 1;
 	}
-	
-	i=0, len=0;
-	while((c = fgetc(fp)) != EOF){
-		if(i==0)
-			printf("argv[%d] = ", len);
-		
-		if(c == '\0'){
-			printf("\n");
-			i=0;
-			len++;
-		}
-		else{
-			printf("%c",c);
-			i++;
-		}
-	}
 
-	/*while(1){
-		if(fscanf(fp, "%[^\n]s", buf)){
+	// print
+	i=0;
+	while(1){
+		if(fscanf(fp, "%s", str1) == EOF){
+			// check file end || fscanf() err
 			if(!feof(fp)){
 				fprintf(stderr, "fscanf() err\n");
 			}
 			break;
 		}
-		printf("%s\n", buf);
-	}*/
+		if(fscanf(fp, "%s", str2) == EOF){
+			// check file end || fscanf() err
+			if(!feof(fp)){
+				fprintf(stderr, "fscanf() err\n");
+			}
+			break;
+		}
+
+		if(!strcmp(str1, rchar)){
+			printf("Characters read : %s\n", str2);
+		}
+		else if(!strcmp(str1, wchar)){
+			printf("Characters write : %s\n", str2);
+		}
+		else if(!strcmp(str1, syscr)){
+			printf("Read syscalls : %s\n", str2);
+		}
+		else if(!strcmp(str1, syscw)){
+			printf("Write syscalls : %s\n", str2);
+		}
+		else if(!strcmp(str1, read_bytes)){
+			printf("Bytes read : %s\n", str2);
+		}
+		else if(!strcmp(str1, write_bytes)){
+			printf("Bytes written : %s\n", str2);
+		}
+		else if(!strcmp(str1, cancelled_write_bytes)){
+			printf("Cancelled write bytes : %s\n", str2);
+		}
+	}
 
 }
 
@@ -371,6 +417,65 @@ int optionT(pid_t pid){
 		if(i > 8)
 			break;
 	}
+}
+
+int optionC(pid_t pid){
+	int i, len, rst;
+	char c;
+	char path1[10];
+	char path2[30]="/proc/";
+	char *cmdline = "/cmdline";
+	char *nPath;
+	char buf[1040];
+	FILE *fp;
+
+	ssu_atoi(pid, path1);
+	len = strlen(path1);
+	for(int i=0; i<len; i++)
+		path2[6+i] = path1[i];
+	path2[6+len] = '\0';
+	strcat(path2, cmdline);
+	
+	if((rst=access(path2, F_OK)) < 0){	// not exist
+		printf("%s doesn't read.\n", path2);
+		return 1;
+	}
+	if((rst=access(path2, R_OK)) < 0){	// can't read
+		printf("%s can't be read.\n", path2);
+		return 1;
+	}
+	
+	if((fp = fopen(path2, "r")) == NULL){ // check fopen() err
+		fprintf(stderr, "fopen() err\n");
+		return 1;
+	}
+	
+	i=0, len=0;
+	while((c = fgetc(fp)) != EOF){ // read until file end
+		if(i==0)
+			printf("argv[%d] = ", len);
+		
+		if(c == '\0'){
+			printf("\n");
+			i=0;
+			len++;
+		}
+		else{
+			printf("%c",c);
+			i++;
+		}
+	}
+
+	/*while(1){
+		if(fscanf(fp, "%[^\n]s", buf)){
+			if(!feof(fp)){
+				fprintf(stderr, "fscanf() err\n");
+			}
+			break;
+		}
+		printf("%s\n", buf);
+	}*/
+
 }
 
 void init_lsproc(struct lsproc_opt *opt){

@@ -35,5 +35,6 @@ int parsing_lsproc(int argc, char*argv[], struct lsproc_opt *);
 int optionF(pid_t pid);
 int optionT(pid_t pid);
 int optionC(pid_t pid);
+int optionN(pid_t pid);
 
 #endif
