@@ -31,7 +31,7 @@ void ssu_lsproc(int argc, char* argv[]){
 	// start lsproc
 	printf(">: ssu_lsproc start. :<\n");
 	
-	// f : 
+	// option f : 
 	if(opt.is_f >= 0){
 		pid = fork();
 		if(pid > 0){		// parents
@@ -48,14 +48,166 @@ void ssu_lsproc(int argc, char* argv[]){
 					printf("([/proc/%d/fd])\n", opt.f_pid[i]);
 				rst = optionF(opt.f_pid[i]);
 			}
-
-			exit(1);
+			exit(1);	// child end
 		}
 		else{				//fork err
 		}
 	}
 
+	// option t :
+	if(opt.is_t >= 0){
+		pid = fork();
+		if(pid > 0){	// parents
+			wait(&status);
+		}
+		else if(pid == 0){
+			if(opt.is_t == 0){
+				opt.t_pid[0] = getpid();
+				opt.is_t++;
+			}
+
+			for(i=0; i<opt.is_t; i++){
+				if(opt.is_t > 1)
+					printf("([/proc/%d/status])\n", opt.t_pid[i]);
+				rst = optionT(opt.t_pid[i]);
+			}
+			exit(1);	// child end
+		}
+		else{	//fork err
+		}
+	}
+
 	printf(">: ssu_lsproc terminated. :<\n");
+}
+
+int optionT(pid_t pid){
+	int i, len, rst, p, d;
+	char path1[10];
+	char path2[26] = "/proc/";
+	char *status = "/status";
+	char *nPath;
+	FILE *fp;
+	char str1[100];
+	char str2[100];
+	char *Name = "Name:";
+	char *State = "State:";
+	char *Tgid = "Tgid:";
+	char *Ngid = "Ngid:";
+	char *Pid = "Pid:";
+	char *PPid = "PPid:";
+	char *TracerPid = "TracerPid:";
+	char *Uid = "Uid:";
+	char *Gid = "Gid:";
+
+	ssu_atoi(pid, path1);
+	len = strlen(path1);
+	for(int i=0; i<len; i++)
+		path2[6+i] = path1[i];
+	path2[6+len] = '\0';
+	strcat(path2, status);
+	
+	if((rst=access(path2, F_OK)) < 0){	// not exist
+		printf("%s doesn't read.\n", path2);
+		return 1;
+	}
+	if((rst=access(path2, R_OK)) < 0){	// can't read
+		printf("%s can't be read.\n", path2);
+		return 1;
+	}
+
+	if((fp = fopen(path2, "r")) < 0){	// check fopen() err
+		fprintf(stderr, "open err\n");
+		exit(1);
+	}
+
+	i=0;
+	// print
+	while(1){
+		if(fscanf(fp, "%s", str1) == EOF){
+			// check file end || fscanf() err
+			break;
+		}
+		if(fscanf(fp, "%s", str2) == EOF){
+			// check file end || fscanf() err
+			break;
+		}
+
+		// print proc/[pid]/status
+		if(!strcmp(str1, Name)){
+			printf("%s %s\n", str1, str2);
+			i++;
+		}
+		else if(!strcmp(str1, State)){
+			printf("%s ", str1);
+			switch(str2[0]){
+				case 'R':
+					printf("Runing\n");
+					break;
+				case 'S':
+					printf("Sleeping\n");
+					break;
+				case 'D':
+					printf("Disk sleep\n");
+					break;
+				case 'T':
+					if(str2[2] == 's')
+						printf("Stopped\n");
+					else if(str2[2] == 't')
+						printf("Tracing stop\n");
+					else
+						printf("%s\n", str2);
+					break;
+				case 'Z':
+					printf("Zombie\n");
+					break;
+				case 'X':
+					printf("Dead\n");
+					break;
+				default:
+					printf("%s\n", str2);
+					break;
+			}
+			fscanf(fp, "%s", str2);
+			i++;
+		}
+		else if(!strcmp(str1, Tgid)){
+			printf("%s %s\n", str1, str2);
+			i++;
+		}
+		else if(!strcmp(str1, Ngid)){
+			printf("%s %s\n", str1, str2);
+			i++;
+		}
+		else if(!strcmp(str1, Pid)){
+			printf("%s %s\n", str1, str2);
+			i++;
+		}
+		else if(!strcmp(str1, PPid)){
+			printf("%s %s\n", str1, str2);
+			i++;
+		}
+		else if(!strcmp(str1, TracerPid)){
+			printf("%s %s\n", str1, str2);
+			i++;
+		}
+		else if(!strcmp(str1, Uid)){
+			printf("%s %s\n", str1, str2);
+			fscanf(fp, "%s", str2);
+			fscanf(fp, "%s", str2);
+			fscanf(fp, "%s", str2);
+			i++;
+		}
+		else if(!strcmp(str1, Gid)){
+			printf("%s %s\n", str1, str2);
+			fscanf(fp, "%s", str2);
+			fscanf(fp, "%s", str2);
+			fscanf(fp, "%s", str2);
+			i++;
+		}
+
+		if(i > 8)
+			break;
+	}
 }
 
 int optionF(pid_t pid){
