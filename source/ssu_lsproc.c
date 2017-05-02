@@ -4,6 +4,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <dirent.h>
+#include <fcntl.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -51,6 +52,8 @@ void ssu_lsproc(int argc, char* argv[]){
 			exit(1);	// child end
 		}
 		else{				//fork err
+			fprintf(stderr, "fork err\n");
+			return;
 		}
 	}
 
@@ -74,14 +77,168 @@ void ssu_lsproc(int argc, char* argv[]){
 			exit(1);	// child end
 		}
 		else{	//fork err
+			fprintf(stderr, "fork() err\n");
+			return;
+		}
+	}
+
+	// option c :
+	if(opt.is_c >= 0){
+		pid = fork();
+		if(pid > 0){	// parents
+			wait(&status);
+		}
+		else if(pid == 0){
+			if(opt.is_c == 0){
+				opt.c_pid[0] = getpid();
+				opt.is_c++;
+			}
+
+			for(i=0; i<opt.is_c; i++){
+				if(opt.is_c > 1)
+					printf("([/proc/%d/cmdline])\n", opt.c_pid[i]);
+				rst = optionC(opt.c_pid[i]);
+			}
+			exit(1);	// child end
+		}
+		else{	//fork err
+			fprintf(stderr, "fork() err\n");
+			return;
 		}
 	}
 
 	printf(">: ssu_lsproc terminated. :<\n");
 }
 
-int optionT(pid_t pid){
+int optionC(pid_t pid){
+	int i, len, rst;
+	char c;
+	char path1[10];
+	char path2[30]="/proc/";
+	char *cmdline = "/cmdline";
+	char *nPath;
+	char linkfile[30];
+	char buf[1040];
+	FILE *fp;
+
+	ssu_atoi(pid, path1);
+	len = strlen(path1);
+	for(int i=0; i<len; i++)
+		path2[6+i] = path1[i];
+	path2[6+len] = '\0';
+	strcat(path2, cmdline);
+	
+	if((rst=access(path2, F_OK)) < 0){	// not exist
+		printf("%s doesn't read.\n", path2);
+		return 1;
+	}
+	if((rst=access(path2, R_OK)) < 0){	// can't read
+		printf("%s can't be read.\n", path2);
+		return 1;
+	}
+	
+	if((fp = fopen(path2, "r")) == NULL){
+		fprintf(stderr, "fopen() err\n");
+		return 1;
+	}
+	
+	i=0, len=0;
+	while((c = fgetc(fp)) != EOF){
+		if(i==0)
+			printf("argv[%d] = ", len);
+		
+		if(c == '\0'){
+			printf("\n");
+			i=0;
+			len++;
+		}
+		else{
+			printf("%c",c);
+			i++;
+		}
+	}
+
+	/*while(1){
+		if(fscanf(fp, "%[^\n]s", buf)){
+			if(!feof(fp)){
+				fprintf(stderr, "fscanf() err\n");
+			}
+			break;
+		}
+		printf("%s\n", buf);
+	}*/
+
+}
+
+int optionF(pid_t pid){
 	int i, len, rst, p, d;
+	char path1[10];
+	char path2[21]="/proc/";
+	char *fd = "/fd";
+	char *nPath;
+	char linkfile[30];
+	DIR *dp;
+	struct dirent *dirp;
+	struct stat statbuf;
+
+	ssu_atoi(pid, path1);
+	len = strlen(path1);
+	for(int i=0; i<len; i++)
+		path2[6+i] = path1[i];
+	path2[6+len] = '\0';
+	strcat(path2, fd);
+	
+	if((rst=access(path2, F_OK)) < 0){	// not exist
+		printf("%s doesn't read.\n", path2);
+		return 1;
+	}
+	if((rst=access(path2, R_OK)) < 0){	// can't read
+		printf("%s can't be read.\n", path2);
+		return 1;
+	}
+
+	if((dp = opendir(path2)) == NULL){	// check opendir() err
+		fprintf(stderr, "opendir() err\n");	
+		return 1;	
+	}
+	while((dirp = readdir(dp)) != NULL){
+		if(strcmp(dirp->d_name, ".") == 0){
+			continue;
+		}
+		if(strcmp(dirp->d_name, "..") == 0){
+			continue;
+		}
+		p = strlen(path2);
+		d = strlen(dirp->d_name);
+		
+		nPath = (char *)malloc(p+d+2);
+		memset(nPath, '\0', p+d+2);
+		strcpy(nPath, path2);
+		nPath[p] = '/';
+		strcpy(&nPath[p+1], dirp->d_name);
+		nPath[p+d+1] = '\0';
+		
+		if(lstat(nPath, &statbuf) < 0){	// check lstat() err
+			fprintf(stderr, "lstat() err\n");
+			return 1;		
+		}
+		
+		if(S_ISLNK(statbuf.st_mode) != 0){
+			memset(linkfile, 0, 30);
+			if(rst = readlink(nPath, linkfile, 30) < 0){ //check readlink() err
+				fprintf(stderr, "readlink() err\n");
+				continue;	
+			}
+			printf("File Descriptor: %s, Opened File: %s\n", dirp->d_name, linkfile);
+		}
+		
+		free(nPath);
+	}
+	closedir(dp);
+}
+
+int optionT(pid_t pid){
+	int i, len, rst;
 	char path1[10];
 	char path2[26] = "/proc/";
 	char *status = "/status";
@@ -115,7 +272,7 @@ int optionT(pid_t pid){
 		return 1;
 	}
 
-	if((fp = fopen(path2, "r")) < 0){	// check fopen() err
+	if((fp = fopen(path2, "r")) == NULL){	// check fopen() err
 		fprintf(stderr, "open err\n");
 		exit(1);
 	}
@@ -125,10 +282,16 @@ int optionT(pid_t pid){
 	while(1){
 		if(fscanf(fp, "%s", str1) == EOF){
 			// check file end || fscanf() err
+			if(!feof(fp)){
+				fprintf(stderr, "fscanf() err\n");
+			}
 			break;
 		}
 		if(fscanf(fp, "%s", str2) == EOF){
 			// check file end || fscanf() err
+			if(!feof(fp)){
+				fprintf(stderr, "fscanf() err\n");
+			}
 			break;
 		}
 
@@ -208,73 +371,6 @@ int optionT(pid_t pid){
 		if(i > 8)
 			break;
 	}
-}
-
-int optionF(pid_t pid){
-	int i, len, rst, p, d;
-	char path1[10];
-	char path2[21]="/proc/";
-	char *fd = "/fd";
-	char *nPath;
-	char linkfile[30];
-	DIR *dp;
-	struct dirent *dirp;
-	struct stat statbuf;
-
-	ssu_atoi(pid, path1);
-	len = strlen(path1);
-	for(int i=0; i<len; i++)
-		path2[6+i] = path1[i];
-	path2[6+len] = '\0';
-	strcat(path2, fd);
-	
-	if((rst=access(path2, F_OK)) < 0){	// not exist
-		printf("%s doesn't read.\n", path2);
-		return 1;
-	}
-	if((rst=access(path2, R_OK)) < 0){	// can't read
-		printf("%s can't be read.\n", path2);
-		return 1;
-	}
-
-	if((dp = opendir(path2)) == NULL){	// check opendir() err
-		// print err msg	
-		return 1;	
-	}
-	while((dirp = readdir(dp)) != NULL){
-		if(strcmp(dirp->d_name, ".") == 0){
-			continue;
-		}
-		if(strcmp(dirp->d_name, "..") == 0){
-			continue;
-		}
-		p = strlen(path2);
-		d = strlen(dirp->d_name);
-		
-		nPath = (char *)malloc(p+d+2);
-		memset(nPath, '\0', p+d+2);
-		strcpy(nPath, path2);
-		nPath[p] = '/';
-		strcpy(&nPath[p+1], dirp->d_name);
-		nPath[p+d+1] = '\0';
-		
-		if(lstat(nPath, &statbuf) < 0){	// check stat() err
-			// print err msg
-			return 1;		
-		}
-		
-		if(S_ISLNK(statbuf.st_mode) != 0){
-			memset(linkfile, 0, 30);
-			if(rst = readlink(nPath, linkfile, 30) < 0){ //check readlink() err
-				// print err msg;
-				continue;	
-			}
-			printf("File Descriptor: %s, Opened File: %s\n", dirp->d_name, linkfile);
-		}
-		
-		free(nPath);
-	}
-	closedir(dp);
 }
 
 void init_lsproc(struct lsproc_opt *opt){
