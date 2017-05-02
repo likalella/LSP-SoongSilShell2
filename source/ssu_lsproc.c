@@ -132,24 +132,42 @@ void ssu_lsproc(int argc, char* argv[]){
 		}
 	}
 
+	// option m :
+	if(opt.is_m >= 0){
+		pid = fork();
+		if(pid > 0){	// parents
+			wait(&status);
+		}
+		else if(pid == 0){	//child
+			if(opt.is_m == 0){
+				opt.m_pid[0] = getpid();
+				opt.is_m++;
+			}
+
+			for(i=0; i<opt.is_m; i++){
+				if(opt.is_m > 1)
+					printf("([/proc/%d/environ])\n", opt.m_pid[i]);
+				rst = optionM(opt.m_pid[i], opt.is_k, opt.key);
+			}
+			exit(1);	// child end
+		}
+		else{	//fork err
+			fprintf(stderr, "fork() err\n");
+			return;
+		}
+	}
+
 	printf(">: ssu_lsproc terminated. :<\n");
 }
 
-int optionN(pid_t pid){
-	int i, len, rst;
+int optionM(pid_t pid, int keyNum, char **key){
+	int i, len, rst, print;
 	char path1[10];
-	char path2[21]="/proc/";
-	char *io = "/io";
-	char str1[30];
-	char str2[30];
+	char path2[30]="/proc/";
+	char *environ = "/environ";
 	char *nPath;
-	char *rchar = "rchar:";
-	char *wchar = "wchar:";
-	char *syscr = "syscr:";
-	char *syscw = "syscw:";
-	char *read_bytes = "read_bytes:";
-	char *write_bytes = "write_bytes:";
-	char *cancelled_write_bytes = "cancelled_write_bytes:";
+	char c;
+	char str[1000];
 	FILE *fp;
 
 	ssu_atoi(pid, path1);
@@ -157,7 +175,7 @@ int optionN(pid_t pid){
 	for(int i=0; i<len; i++)
 		path2[6+i] = path1[i];
 	path2[6+len] = '\0';
-	strcat(path2, io);
+	strcat(path2, environ);
 	
 	if((rst=access(path2, F_OK)) < 0){	// not exist
 		printf("%s doesn't read.\n", path2);
@@ -168,49 +186,43 @@ int optionN(pid_t pid){
 		return 1;
 	}
 
-	if((fp=fopen(path2, "r")) == NULL){
+	if((fp=fopen(path2, "r")) == NULL){ // check fopen() err
 		fprintf(stderr, "fopen() err\n");
 		return 1;
 	}
-
-	// print
-	i=0;
-	while(1){
-		if(fscanf(fp, "%s", str1) == EOF){
-			// check file end || fscanf() err
-			if(!feof(fp)){
-				fprintf(stderr, "fscanf() err\n");
+	
+	len=0; print=0;
+	while((c = fgetc(fp)) != EOF){	// read until file end
+		if(c == '\0'){
+			str[len] = '\0';
+			if(keyNum > 0 && print == 1){
+				print = 0;
+				printf("%s\n", str);
 			}
-			break;
-		}
-		if(fscanf(fp, "%s", str2) == EOF){
-			// check file end || fscanf() err
-			if(!feof(fp)){
-				fprintf(stderr, "fscanf() err\n");
+			else if(keyNum <= 0){
+				printf("%s\n", str);
 			}
-			break;
+			len = 0;
 		}
-
-		if(!strcmp(str1, rchar)){
-			printf("Characters read : %s\n", str2);
+		else if(c == '='){
+			str[len] = '\0';
+			if(keyNum > 0){
+				for(i=0; i<keyNum; i++){
+					if(!strcmp(str, key[i])){
+						print = 1;
+						printf("%s=", str);
+						break;
+					}
+				}
+			}
+			else{
+				printf("%s=", str);
+			}
+			len=0;
 		}
-		else if(!strcmp(str1, wchar)){
-			printf("Characters write : %s\n", str2);
-		}
-		else if(!strcmp(str1, syscr)){
-			printf("Read syscalls : %s\n", str2);
-		}
-		else if(!strcmp(str1, syscw)){
-			printf("Write syscalls : %s\n", str2);
-		}
-		else if(!strcmp(str1, read_bytes)){
-			printf("Bytes read : %s\n", str2);
-		}
-		else if(!strcmp(str1, write_bytes)){
-			printf("Bytes written : %s\n", str2);
-		}
-		else if(!strcmp(str1, cancelled_write_bytes)){
-			printf("Cancelled write bytes : %s\n", str2);
+		else{
+			str[len] = c;
+			len++;
 		}
 	}
 
@@ -466,15 +478,86 @@ int optionC(pid_t pid){
 		}
 	}
 
-	/*while(1){
-		if(fscanf(fp, "%[^\n]s", buf)){
+}
+
+int optionN(pid_t pid){
+	int i, len, rst;
+	char path1[10];
+	char path2[21]="/proc/";
+	char *io = "/io";
+	char str1[30];
+	char str2[30];
+	char *nPath;
+	char *rchar = "rchar:";
+	char *wchar = "wchar:";
+	char *syscr = "syscr:";
+	char *syscw = "syscw:";
+	char *read_bytes = "read_bytes:";
+	char *write_bytes = "write_bytes:";
+	char *cancelled_write_bytes = "cancelled_write_bytes:";
+	FILE *fp;
+
+	ssu_atoi(pid, path1);
+	len = strlen(path1);
+	for(int i=0; i<len; i++)
+		path2[6+i] = path1[i];
+	path2[6+len] = '\0';
+	strcat(path2, io);
+	
+	if((rst=access(path2, F_OK)) < 0){	// not exist
+		printf("%s doesn't read.\n", path2);
+		return 1;
+	}
+	if((rst=access(path2, R_OK)) < 0){	// can't read
+		printf("%s can't be read.\n", path2);
+		return 1;
+	}
+
+	if((fp=fopen(path2, "r")) == NULL){
+		fprintf(stderr, "fopen() err\n");
+		return 1;
+	}
+
+	// print
+	i=0;
+	while(1){
+		if(fscanf(fp, "%s", str1) == EOF){
+			// check file end || fscanf() err
 			if(!feof(fp)){
 				fprintf(stderr, "fscanf() err\n");
 			}
 			break;
 		}
-		printf("%s\n", buf);
-	}*/
+		if(fscanf(fp, "%s", str2) == EOF){
+			// check file end || fscanf() err
+			if(!feof(fp)){
+				fprintf(stderr, "fscanf() err\n");
+			}
+			break;
+		}
+
+		if(!strcmp(str1, rchar)){
+			printf("Characters read : %s\n", str2);
+		}
+		else if(!strcmp(str1, wchar)){
+			printf("Characters write : %s\n", str2);
+		}
+		else if(!strcmp(str1, syscr)){
+			printf("Read syscalls : %s\n", str2);
+		}
+		else if(!strcmp(str1, syscw)){
+			printf("Write syscalls : %s\n", str2);
+		}
+		else if(!strcmp(str1, read_bytes)){
+			printf("Bytes read : %s\n", str2);
+		}
+		else if(!strcmp(str1, write_bytes)){
+			printf("Bytes written : %s\n", str2);
+		}
+		else if(!strcmp(str1, cancelled_write_bytes)){
+			printf("Cancelled write bytes : %s\n", str2);
+		}
+	}
 
 }
 
@@ -512,7 +595,7 @@ void init_lsproc(struct lsproc_opt *opt){
 
 int parsing_lsproc(int argc, char* argv[], struct lsproc_opt * opt){
 	// parsing
-	int i, j, n;
+	int i, j, k, n;
 	char *tmp;
 	char befoOpt = '\0';
 
@@ -532,9 +615,10 @@ int parsing_lsproc(int argc, char* argv[], struct lsproc_opt * opt){
 					befoOpt = 'f';
 					break;
 				case 't':
+					printf("tttt\n");
 					if(opt->is_t >= 0) return -1;
 					while(++i < argc && argv[i][0] != '-' && isdigit(argv[i][0])){
-						if(n > 15) return -1;
+						if(n > 15){ printf("15?\n");return -1;}
 						opt->t_pid[n] = atoi(argv[i]);
 						n++;
 					}
@@ -585,6 +669,17 @@ int parsing_lsproc(int argc, char* argv[], struct lsproc_opt * opt){
 					}
 					opt->is_k = n;
 					i--;
+					if(opt->is_k > 1){
+						for(j=0; j<opt->is_k; j++){
+							for(k=1; k<opt->is_k; k++){
+								if(strcmp(opt->key[k-1], opt->key[k]) > 0){
+									tmp = opt->key[k];
+									opt->key[k] = opt->key[k-1];
+									opt->key[k-1] = tmp;
+								}
+							}	
+						}
+					}
 					befoOpt = 'k';
 					break;
 				case 'w':
@@ -658,7 +753,7 @@ int parsing_lsproc(int argc, char* argv[], struct lsproc_opt * opt){
 		}
 	}
 
-	// TODO if r option, sort here
+	// if r option, sort here
 	if(opt->is_r==0){
 		if(opt->is_f > 1){
 			for(i=0; i<opt->is_f; i++){
@@ -720,17 +815,6 @@ int parsing_lsproc(int argc, char* argv[], struct lsproc_opt * opt){
 			}
 		}
 
-		if(opt->is_k > 1){
-			for(i=0; i<opt->is_k; i++){
-				for(j=1; j<opt->is_k; j++){
-					if(strcmp(opt->key[j-1], opt->key[j]) > 0){
-						tmp = opt->key[j];
-						opt->key[j] = opt->key[j-1];
-						opt->key[j-1] = tmp;
-					}
-				}
-			}
-		}
 	}
 	return 0;
 }
