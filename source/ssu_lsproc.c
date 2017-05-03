@@ -173,14 +173,14 @@ void ssu_lsproc(int argc, char* argv[]){
 		}
 	}
 
-	// option e:
-	if(opt.is_e >= 0){
+	// option l:
+	if(opt.is_l >= 0){
 		pid = fork();
 		if(pid > 0){	// parents
 			wait(&status);
 		}
 		else if(pid == 0){ // child
-			rst = optionE();
+			rst = optionL();
 			exit(0);
 		}
 		else{ // fork err
@@ -192,12 +192,11 @@ void ssu_lsproc(int argc, char* argv[]){
 	printf(">: ssu_lsproc terminated. :<\n");
 }
 
-int optionE(void){
-	char *path = "/proc/filesystems";
+int optionL(void){
+	int i, rst;
+	char *path = "/proc/uptime";
 	FILE *fp;
-	char *nodev = "nodev";
-	char str[20];
-	int i=0, rst;
+	double worktime, idletime;
 
 	if((rst=access(path, F_OK)) < 0){	// not exist
 		printf("%s doesn't read.\n", path);
@@ -207,25 +206,17 @@ int optionE(void){
 		printf("%s can't be read.\n", path);
 		return 1;
 	}
-
+	
 	if((fp = fopen(path, "r")) == NULL){ // check fopen() err
 		fprintf(stderr, "fopen() err\n");
 		return 1;
 	}
-	
-	while(!(fscanf(fp, "%s", str) == EOF)){
-		if(!strcmp(nodev, str)){
-			fscanf(fp, "%s", str);	
-		}
-		else{
-			printf("%s ", str);
-			i++;
-			if(i % 5 == 0){
-				printf("\n");
-			}
-		}
-	}
-	printf("\n");
+
+	fscanf(fp, "%lf", &worktime);
+	fscanf(fp, "%lf", &idletime);
+
+	printf("Process worked time : %.2f(sec)\n", worktime);
+	printf("Process worked time : %.2f(sec)\n", idletime);
 }
 
 int optionF(pid_t pid){
@@ -695,6 +686,43 @@ int optionW(void){
 			printf("%15.3f : <%s> %s\n", avg, str1, str2);
 		}
 	}
+}
+
+int optionE(void){
+	char *path = "/proc/filesystems";
+	FILE *fp;
+	char *nodev = "nodev";
+	char str[20];
+	int i=0, rst;
+
+	if((rst=access(path, F_OK)) < 0){	// not exist
+		printf("%s doesn't read.\n", path);
+		return 1;
+	}
+	if((rst=access(path, R_OK)) < 0){	// can't read
+		printf("%s can't be read.\n", path);
+		return 1;
+	}
+
+	if((fp = fopen(path, "r")) == NULL){ // check fopen() err
+		fprintf(stderr, "fopen() err\n");
+		return 1;
+	}
+	
+	printf("<<Supported Filesystems>>\n");
+	while(!(fscanf(fp, "%s", str) == EOF)){
+		if(!strcmp(nodev, str)){
+			fscanf(fp, "%s", str);	
+		}
+		else{
+			printf("%s ", str);
+			i++;
+			if(i % 5 == 0){
+				printf("\n");
+			}
+		}
+	}
+	printf("\n");
 }
 
 void init_lsproc(struct lsproc_opt *opt){
