@@ -37,5 +37,6 @@ int optionT(pid_t pid);
 int optionC(pid_t pid);
 int optionN(pid_t pid);
 int optionM(pid_t pid, int keyNum, char **key);
+int optionW(void);
 
 #endif

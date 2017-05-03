@@ -49,7 +49,7 @@ void ssu_lsproc(int argc, char* argv[]){
 					printf("([/proc/%d/fd])\n", opt.f_pid[i]);
 				rst = optionF(opt.f_pid[i]);
 			}
-			exit(1);	// child end
+			exit(0);	// child end
 		}
 		else{				//fork err
 			fprintf(stderr, "fork err\n");
@@ -74,7 +74,7 @@ void ssu_lsproc(int argc, char* argv[]){
 					printf("([/proc/%d/status])\n", opt.t_pid[i]);
 				rst = optionT(opt.t_pid[i]);
 			}
-			exit(1);	// child end
+			exit(0);	// child end
 		}
 		else{	//fork err
 			fprintf(stderr, "fork() err\n");
@@ -99,7 +99,7 @@ void ssu_lsproc(int argc, char* argv[]){
 					printf("([/proc/%d/cmdline])\n", opt.c_pid[i]);
 				rst = optionC(opt.c_pid[i]);
 			}
-			exit(1);	// child end
+			exit(0);	// child end
 		}
 		else{	//fork err
 			fprintf(stderr, "fork() err\n");
@@ -124,7 +124,7 @@ void ssu_lsproc(int argc, char* argv[]){
 					printf("([/proc/%d/io])\n", opt.n_pid[i]);
 				rst = optionN(opt.n_pid[i]);
 			}
-			exit(1);	// child end
+			exit(0);	// child end
 		}
 		else{	//fork err
 			fprintf(stderr, "fork() err\n");
@@ -149,9 +149,25 @@ void ssu_lsproc(int argc, char* argv[]){
 					printf("([/proc/%d/environ])\n", opt.m_pid[i]);
 				rst = optionM(opt.m_pid[i], opt.is_k, opt.key);
 			}
-			exit(1);	// child end
+			exit(0);	// child end
 		}
 		else{	//fork err
+			fprintf(stderr, "fork() err\n");
+			return;
+		}
+	}
+
+	// option w:
+	if(opt.is_w >= 0){
+		pid = fork();
+		if(pid > 0){	// parents
+			wait(&status);
+		}
+		else if(pid == 0){ // child
+			rst = optionW();
+			exit(0);
+		}
+		else{ // fork err
 			fprintf(stderr, "fork() err\n");
 			return;
 		}
@@ -160,72 +176,72 @@ void ssu_lsproc(int argc, char* argv[]){
 	printf(">: ssu_lsproc terminated. :<\n");
 }
 
-int optionM(pid_t pid, int keyNum, char **key){
-	int i, len, rst, print;
-	char path1[10];
-	char path2[30]="/proc/";
-	char *environ = "/environ";
-	char *nPath;
-	char c;
-	char str[1000];
+int optionW(void){
+	char *path = "/proc/interrupts";
+	int i, rst, len, cpuNum=0;
 	FILE *fp;
+	char c;
+	char str1[1024];
+	char str2[1024];
+	double avg = 0;
+	int input = 0;
 
-	ssu_atoi(pid, path1);
-	len = strlen(path1);
-	for(int i=0; i<len; i++)
-		path2[6+i] = path1[i];
-	path2[6+len] = '\0';
-	strcat(path2, environ);
-	
-	if((rst=access(path2, F_OK)) < 0){	// not exist
-		printf("%s doesn't read.\n", path2);
+	if((rst=access(path, F_OK)) < 0){	// not exist
+		printf("%s doesn't read.\n", path);
 		return 1;
 	}
-	if((rst=access(path2, R_OK)) < 0){	// can't read
-		printf("%s can't be read.\n", path2);
+	if((rst=access(path, R_OK)) < 0){	// can't read
+		printf("%s can't be read.\n", path);
 		return 1;
 	}
 
-	if((fp=fopen(path2, "r")) == NULL){ // check fopen() err
+	if((fp = fopen(path, "r")) == NULL){ // check fopen() err
 		fprintf(stderr, "fopen() err\n");
 		return 1;
 	}
-	
-	len=0; print=0;
-	while((c = fgetc(fp)) != EOF){	// read until file end
-		if(c == '\0'){
-			str[len] = '\0';
-			if(keyNum > 0 && print == 1){
-				print = 0;
-				printf("%s\n", str);
-			}
-			else if(keyNum <= 0){
-				printf("%s\n", str);
-			}
-			len = 0;
-		}
-		else if(c == '='){
-			str[len] = '\0';
-			if(keyNum > 0){
-				for(i=0; i<keyNum; i++){
-					if(!strcmp(str, key[i])){
-						print = 1;
-						printf("%s=", str);
-						break;
-					}
+
+	while((c = fgetc(fp)) != '\n'){ // check CPUNum 
+		if(c != ' '){
+			cpuNum++;
+			while((c = fgetc(fp)) != ' '){
+				if(c == '\n'){
+					ungetc(c, fp);
+					break;
 				}
 			}
-			else{
-				printf("%s=", str);
-			}
-			len=0;
-		}
-		else{
-			str[len] = c;
-			len++;
 		}
 	}
 
+	printf("%d :as \n", c);
+	printf("---Number of CPUs : %d ---\n", cpuNum);
+	printf("      [Average] : [Description]\n");
+	
+	while((c = fgetc(fp)) != EOF){	// until read file end.
+		if(c == ' '){
+			// pass	
+		}
+		else if(isdigit(c)){
+			fscanf(fp, "%[^\n]s", str2);
+		}
+		else if(isalpha(c)){
+			input = 0;
+			avg = 0;
+			ungetc(c, fp);
+			fscanf(fp, "%s", str1);
+			len = strlen(str1);
+			str1[len-1] = '\0';
+			for(i=0; i<cpuNum; i++){
+				str2[0] = '\0';
+				fscanf(fp, "%s", str2);
+				input = atoi(str2);
+				avg += (double)input;
+			}
+			avg = avg / (double)cpuNum;
+			str2[0] = '\0';
+			fscanf(fp, "%[^\n]s", str2);
+			printf("%15.3f : <%s> %s\n", avg, str1, str2);
+		}
+	}
 }
 
 int optionF(pid_t pid){
@@ -561,6 +577,74 @@ int optionN(pid_t pid){
 
 }
 
+int optionM(pid_t pid, int keyNum, char **key){
+	int i, len, rst, print;
+	char path1[10];
+	char path2[30]="/proc/";
+	char *environ = "/environ";
+	char *nPath;
+	char c;
+	char str[1000];
+	FILE *fp;
+
+	ssu_atoi(pid, path1);
+	len = strlen(path1);
+	for(int i=0; i<len; i++)
+		path2[6+i] = path1[i];
+	path2[6+len] = '\0';
+	strcat(path2, environ);
+	
+	if((rst=access(path2, F_OK)) < 0){	// not exist
+		printf("%s doesn't read.\n", path2);
+		return 1;
+	}
+	if((rst=access(path2, R_OK)) < 0){	// can't read
+		printf("%s can't be read.\n", path2);
+		return 1;
+	}
+
+	if((fp=fopen(path2, "r")) == NULL){ // check fopen() err
+		fprintf(stderr, "fopen() err\n");
+		return 1;
+	}
+	
+	len=0; print=0;
+	while((c = fgetc(fp)) != EOF){	// read until file end
+		if(c == '\0'){
+			str[len] = '\0';
+			if(keyNum > 0 && print == 1){
+				print = 0;
+				printf("%s\n", str);
+			}
+			else if(keyNum <= 0){
+				printf("%s\n", str);
+			}
+			len = 0;
+		}
+		else if(c == '='){
+			str[len] = '\0';
+			if(keyNum > 0){
+				for(i=0; i<keyNum; i++){
+					if(!strcmp(str, key[i])){
+						print = 1;
+						printf("%s=", str);
+						break;
+					}
+				}
+			}
+			else{
+				printf("%s=", str);
+			}
+			len=0;
+		}
+		else{
+			str[len] = c;
+			len++;
+		}
+	}
+
+}
+
 void init_lsproc(struct lsproc_opt *opt){
 	// init struct lsproc_opt
 	int i;
@@ -615,10 +699,9 @@ int parsing_lsproc(int argc, char* argv[], struct lsproc_opt * opt){
 					befoOpt = 'f';
 					break;
 				case 't':
-					printf("tttt\n");
 					if(opt->is_t >= 0) return -1;
 					while(++i < argc && argv[i][0] != '-' && isdigit(argv[i][0])){
-						if(n > 15){ printf("15?\n");return -1;}
+						if(n > 15) return -1;
 						opt->t_pid[n] = atoi(argv[i]);
 						n++;
 					}
@@ -669,17 +752,6 @@ int parsing_lsproc(int argc, char* argv[], struct lsproc_opt * opt){
 					}
 					opt->is_k = n;
 					i--;
-					if(opt->is_k > 1){
-						for(j=0; j<opt->is_k; j++){
-							for(k=1; k<opt->is_k; k++){
-								if(strcmp(opt->key[k-1], opt->key[k]) > 0){
-									tmp = opt->key[k];
-									opt->key[k] = opt->key[k-1];
-									opt->key[k-1] = tmp;
-								}
-							}	
-						}
-					}
 					befoOpt = 'k';
 					break;
 				case 'w':
@@ -812,6 +884,17 @@ int parsing_lsproc(int argc, char* argv[], struct lsproc_opt * opt){
 						opt->m_pid[j-1] = n;
 					}
 				}
+			}
+		}
+		if(opt->is_k > 1){
+			for(j=0; j<opt->is_k; j++){
+				for(k=1; k<opt->is_k; k++){
+					if(strcmp(opt->key[k-1], opt->key[k]) > 0){
+						tmp = opt->key[k];
+						opt->key[k] = opt->key[k-1];
+						opt->key[k-1] = tmp;
+					}
+				}	
 			}
 		}
 
