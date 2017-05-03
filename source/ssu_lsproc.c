@@ -173,6 +173,22 @@ void ssu_lsproc(int argc, char* argv[]){
 		}
 	}
 
+	// option e:
+	if(opt.is_e >= 0){
+		pid = fork();
+		if(pid > 0){	// parents
+			wait(&status);
+		}
+		else if(pid == 0){ // child
+			rst = optionE();
+			exit(0);
+		}
+		else{ // fork err
+			fprintf(stderr, "fork() err\n");
+			return;
+		}
+	}
+
 	// option l:
 	if(opt.is_l >= 0){
 		pid = fork();
@@ -189,14 +205,30 @@ void ssu_lsproc(int argc, char* argv[]){
 		}
 	}
 
+	// option v:
+	if(opt.is_v >= 0){
+		pid = fork();
+		if(pid > 0){	// parents
+			wait(&status);
+		}
+		else if(pid == 0){ // child
+			rst = optionV();
+			exit(0);
+		}
+		else{ // fork err
+			fprintf(stderr, "fork() err\n");
+			return;
+		}
+	}
+
 	printf(">: ssu_lsproc terminated. :<\n");
 }
 
-int optionL(void){
-	int i, rst;
-	char *path = "/proc/uptime";
+int optionV(void){
+	int rst;
+	char *path = "/proc/version";
+	char buf[1024];
 	FILE *fp;
-	double worktime, idletime;
 
 	if((rst=access(path, F_OK)) < 0){	// not exist
 		printf("%s doesn't read.\n", path);
@@ -206,17 +238,16 @@ int optionL(void){
 		printf("%s can't be read.\n", path);
 		return 1;
 	}
-	
-	if((fp = fopen(path, "r")) == NULL){ // check fopen() err
+
+	if((fp = fopen(path, "r")) == NULL){	// check fopen() err
 		fprintf(stderr, "fopen() err\n");
 		return 1;
 	}
 
-	fscanf(fp, "%lf", &worktime);
-	fscanf(fp, "%lf", &idletime);
+	fscanf(fp, "%[^\n]s", buf);
+	printf("%s\n", buf);
 
-	printf("Process worked time : %.2f(sec)\n", worktime);
-	printf("Process worked time : %.2f(sec)\n", idletime);
+	return 0;
 }
 
 int optionF(pid_t pid){
@@ -284,6 +315,8 @@ int optionF(pid_t pid){
 		free(nPath);
 	}
 	closedir(dp);
+
+	return 0;
 }
 
 int optionT(pid_t pid){
@@ -420,6 +453,7 @@ int optionT(pid_t pid){
 		if(i > 8)
 			break;
 	}
+	return 0;
 }
 
 int optionC(pid_t pid){
@@ -468,7 +502,7 @@ int optionC(pid_t pid){
 			i++;
 		}
 	}
-
+	return 0;
 }
 
 int optionN(pid_t pid){
@@ -549,17 +583,18 @@ int optionN(pid_t pid){
 			printf("Cancelled write bytes : %s\n", str2);
 		}
 	}
-
+	return 0;
 }
 
 int optionM(pid_t pid, int keyNum, char **key){
-	int i, len, rst, print;
+	int i, len, rst, print, num;
 	char path1[10];
 	char path2[30]="/proc/";
 	char *environ = "/environ";
 	char *nPath;
 	char c;
 	char str[1000];
+	char *k[16];
 	FILE *fp;
 
 	ssu_atoi(pid, path1);
@@ -582,14 +617,33 @@ int optionM(pid_t pid, int keyNum, char **key){
 		fprintf(stderr, "fopen() err\n");
 		return 1;
 	}
+
+	if(keyNum > 0){
+		for(i=0; i<keyNum; i++){
+			k[i] ='\0';
+		}
+	}
 	
-	len=0; print=0;
+	len=0; print=-1; num=0;
 	while((c = fgetc(fp)) != EOF){	// read until file end
+		if(num > keyNum)
+			break;
+		
 		if(c == '\0'){
 			str[len] = '\0';
-			if(keyNum > 0 && print == 1){
-				print = 0;
-				printf("%s\n", str);
+			if(keyNum > 0 && print >= 0){
+				if(len == 0){
+					k[print] = '\0';
+				}
+				else{
+					k[print] = malloc(len);
+					strcpy(k[print], str);
+				}
+				//k[print] = malloc(len);
+				//strcpy(k[print], str);
+
+				print = -1;
+				num++;
 			}
 			else if(keyNum <= 0){
 				printf("%s\n", str);
@@ -601,8 +655,7 @@ int optionM(pid_t pid, int keyNum, char **key){
 			if(keyNum > 0){
 				for(i=0; i<keyNum; i++){
 					if(!strcmp(str, key[i])){
-						print = 1;
-						printf("%s=", str);
+						print = i;
 						break;
 					}
 				}
@@ -617,7 +670,15 @@ int optionM(pid_t pid, int keyNum, char **key){
 			len++;
 		}
 	}
+	
+	for(i = 0; i<keyNum; i++){
+		if(k[i] != '\0'){
+			printf("%s=%s\n", key[i], k[i]);
+			free(k[i]);
+		}
+	}
 
+	return 0;
 }
 
 int optionW(void){
@@ -656,7 +717,6 @@ int optionW(void){
 		}
 	}
 
-	printf("%d :as \n", c);
 	printf("---Number of CPUs : %d ---\n", cpuNum);
 	printf("      [Average] : [Description]\n");
 	
@@ -686,6 +746,7 @@ int optionW(void){
 			printf("%15.3f : <%s> %s\n", avg, str1, str2);
 		}
 	}
+	return 0;
 }
 
 int optionE(void){
@@ -723,6 +784,36 @@ int optionE(void){
 		}
 	}
 	printf("\n");
+	return 0;
+}
+
+int optionL(void){
+	int i, rst;
+	char *path = "/proc/uptime";
+	FILE *fp;
+	double worktime, idletime;
+
+	if((rst=access(path, F_OK)) < 0){	// not exist
+		printf("%s doesn't read.\n", path);
+		return 1;
+	}
+	if((rst=access(path, R_OK)) < 0){	// can't read
+		printf("%s can't be read.\n", path);
+		return 1;
+	}
+	
+	if((fp = fopen(path, "r")) == NULL){ // check fopen() err
+		fprintf(stderr, "fopen() err\n");
+		return 1;
+	}
+
+	fscanf(fp, "%lf", &worktime);
+	fscanf(fp, "%lf", &idletime);
+
+	printf("Process worked time : %.2f(sec)\n", worktime);
+	printf("Process worked time : %.2f(sec)\n", idletime);
+	
+	return 0;
 }
 
 void init_lsproc(struct lsproc_opt *opt){
@@ -967,12 +1058,12 @@ int parsing_lsproc(int argc, char* argv[], struct lsproc_opt * opt){
 			}
 		}
 		if(opt->is_k > 1){
-			for(j=0; j<opt->is_k; j++){
-				for(k=1; k<opt->is_k; k++){
-					if(strcmp(opt->key[k-1], opt->key[k]) > 0){
-						tmp = opt->key[k];
-						opt->key[k] = opt->key[k-1];
-						opt->key[k-1] = tmp;
+			for(i=0; i<opt->is_k; i++){
+				for(j=1; j<opt->is_k; j++){
+					if(strcmp(opt->key[j-1], opt->key[j]) > 0){
+						tmp = opt->key[j];
+						opt->key[j] = opt->key[j-1];
+						opt->key[j-1] = tmp;
 					}
 				}	
 			}
