@@ -173,18 +173,31 @@ void ssu_lsproc(int argc, char* argv[]){
 		}
 	}
 
+	// option e:
+	if(opt.is_e >= 0){
+		pid = fork();
+		if(pid > 0){	// parents
+			wait(&status);
+		}
+		else if(pid == 0){ // child
+			rst = optionE();
+			exit(0);
+		}
+		else{ // fork err
+			fprintf(stderr, "fork() err\n");
+			return;
+		}
+	}
+
 	printf(">: ssu_lsproc terminated. :<\n");
 }
 
-int optionW(void){
-	char *path = "/proc/interrupts";
-	int i, rst, len, cpuNum=0;
+int optionE(void){
+	char *path = "/proc/filesystems";
 	FILE *fp;
-	char c;
-	char str1[1024];
-	char str2[1024];
-	double avg = 0;
-	int input = 0;
+	char *nodev = "nodev";
+	char str[20];
+	int i=0, rst;
 
 	if((rst=access(path, F_OK)) < 0){	// not exist
 		printf("%s doesn't read.\n", path);
@@ -199,49 +212,20 @@ int optionW(void){
 		fprintf(stderr, "fopen() err\n");
 		return 1;
 	}
-
-	while((c = fgetc(fp)) != '\n'){ // check CPUNum 
-		if(c != ' '){
-			cpuNum++;
-			while((c = fgetc(fp)) != ' '){
-				if(c == '\n'){
-					ungetc(c, fp);
-					break;
-				}
-			}
-		}
-	}
-
-	printf("%d :as \n", c);
-	printf("---Number of CPUs : %d ---\n", cpuNum);
-	printf("      [Average] : [Description]\n");
 	
-	while((c = fgetc(fp)) != EOF){	// until read file end.
-		if(c == ' '){
-			// pass	
+	while(!(fscanf(fp, "%s", str) == EOF)){
+		if(!strcmp(nodev, str)){
+			fscanf(fp, "%s", str);	
 		}
-		else if(isdigit(c)){
-			fscanf(fp, "%[^\n]s", str2);
-		}
-		else if(isalpha(c)){
-			input = 0;
-			avg = 0;
-			ungetc(c, fp);
-			fscanf(fp, "%s", str1);
-			len = strlen(str1);
-			str1[len-1] = '\0';
-			for(i=0; i<cpuNum; i++){
-				str2[0] = '\0';
-				fscanf(fp, "%s", str2);
-				input = atoi(str2);
-				avg += (double)input;
+		else{
+			printf("%s ", str);
+			i++;
+			if(i % 5 == 0){
+				printf("\n");
 			}
-			avg = avg / (double)cpuNum;
-			str2[0] = '\0';
-			fscanf(fp, "%[^\n]s", str2);
-			printf("%15.3f : <%s> %s\n", avg, str1, str2);
 		}
 	}
+	printf("\n");
 }
 
 int optionF(pid_t pid){
@@ -643,6 +627,74 @@ int optionM(pid_t pid, int keyNum, char **key){
 		}
 	}
 
+}
+
+int optionW(void){
+	char *path = "/proc/interrupts";
+	int i, rst, len, cpuNum=0;
+	FILE *fp;
+	char c;
+	char str1[1024];
+	char str2[1024];
+	double avg = 0;
+	int input = 0;
+
+	if((rst=access(path, F_OK)) < 0){	// not exist
+		printf("%s doesn't read.\n", path);
+		return 1;
+	}
+	if((rst=access(path, R_OK)) < 0){	// can't read
+		printf("%s can't be read.\n", path);
+		return 1;
+	}
+
+	if((fp = fopen(path, "r")) == NULL){ // check fopen() err
+		fprintf(stderr, "fopen() err\n");
+		return 1;
+	}
+
+	while((c = fgetc(fp)) != '\n'){ // check CPUNum 
+		if(c != ' '){
+			cpuNum++;
+			while((c = fgetc(fp)) != ' '){
+				if(c == '\n'){
+					ungetc(c, fp);
+					break;
+				}
+			}
+		}
+	}
+
+	printf("%d :as \n", c);
+	printf("---Number of CPUs : %d ---\n", cpuNum);
+	printf("      [Average] : [Description]\n");
+	
+	while((c = fgetc(fp)) != EOF){	// until read file end.
+		if(c == ' '){
+			// pass	
+		}
+		else if(isdigit(c)){
+			fscanf(fp, "%[^\n]s", str2);
+		}
+		else if(isalpha(c)){
+			input = 0;
+			avg = 0;
+			ungetc(c, fp);
+			fscanf(fp, "%s", str1);
+			len = strlen(str1);
+			str1[len-1] = '\0';
+			for(i=0; i<cpuNum; i++){
+				str2[0] = '\0';
+				fscanf(fp, "%s", str2);
+				input = atoi(str2);
+				avg += (double)input;
+			}
+			avg = avg / (double)cpuNum;
+			str2[0] = '\0';
+			fscanf(fp, "%[^\n]s", str2);
+			printf("%15.3f : <%s> %s\n", avg, str1, str2);
+		}
+	}
 }
 
 void init_lsproc(struct lsproc_opt *opt){
