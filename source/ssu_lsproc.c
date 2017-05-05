@@ -17,13 +17,14 @@ int main(int argc, char* argv[]){
 	struct lsproc_opt opt;
 	int i, j, n, rst;
 	int pid, status;
+	int fd, fderr, fdout;
 	char *tmp;
 	init_lsproc(&opt);
 
 	// parsing
 	if((rst = parsing_lsproc(argc, argv, &opt)) < 0){
 		lsprocUsage();
-		return -1;
+		exit(1);
 	}
 
 	// check parsing
@@ -31,6 +32,37 @@ int main(int argc, char* argv[]){
 
 	// start lsproc
 	printf(">: ssu_lsproc start. :<\n");
+
+	// option o:
+	if(opt.is_o > 0){
+		if((fd = open(opt.o_fname, O_WRONLY|O_CREAT|O_TRUNC, 0644)) < 0){ // check open() err
+			fprintf(stderr, "open() err\n");
+			exit(1);
+		}
+
+		if((fdout = dup(STDOUT_FILENO)) < 0){ // check dup() err
+			fprintf(stderr, "dup() err\n");
+			exit(1);
+		}
+
+		if((fderr = dup(STDERR_FILENO)) < 0){ // check dup() err
+			fprintf(stderr, "dup() err\n");
+			exit(1);
+		}
+		
+		if((rst = dup2(fd, STDOUT_FILENO)) < 0){ // check dup2() err
+			fprintf(stderr, "dup2() err\n");
+			exit(1);
+		}
+
+		if((rst = dup2(fd, STDERR_FILENO)) < 0){ // check dup2() err
+			fprintf(stderr, "dup2() err\n");
+			exit(1);
+		}
+
+		printf("!--Successfully Redirected : %s--!\n", opt.o_fname);
+
+	}
 	
 	// option f : 
 	if(opt.is_f >= 0){
@@ -73,7 +105,7 @@ int main(int argc, char* argv[]){
 		}
 		else{				//fork err
 			fprintf(stderr, "fork err\n");
-			return -1;
+			exit(1);
 		}
 	}
 
@@ -117,7 +149,7 @@ int main(int argc, char* argv[]){
 		}
 		else{	//fork err
 			fprintf(stderr, "fork() err\n");
-			return -1;
+			exit(1);
 		}
 	}
 
@@ -161,7 +193,7 @@ int main(int argc, char* argv[]){
 		}
 		else{	//fork err
 			fprintf(stderr, "fork() err\n");
-			return -1;
+			exit(1);
 		}
 	}
 
@@ -205,7 +237,7 @@ int main(int argc, char* argv[]){
 		}
 		else{	//fork err
 			fprintf(stderr, "fork() err\n");
-			return -1;
+			exit(1);
 		}
 	}
 
@@ -246,6 +278,7 @@ int main(int argc, char* argv[]){
 					}
 				}
 				
+				// option k with option r :
 				if(opt.is_k > 1){
 					for(i=0; i<opt.is_k && i < 16 ; i++){
 						for(j=1; j<opt.is_k && i < 16; j++){
@@ -269,7 +302,7 @@ int main(int argc, char* argv[]){
 		}
 		else{	//fork err
 			fprintf(stderr, "fork() err\n");
-			return -1;
+			exit(1);
 		}
 	}
 
@@ -285,7 +318,7 @@ int main(int argc, char* argv[]){
 		}
 		else{ // fork err
 			fprintf(stderr, "fork() err\n");
-			return -1;
+			exit(1);
 		}
 	}
 
@@ -301,7 +334,7 @@ int main(int argc, char* argv[]){
 		}
 		else{ // fork err
 			fprintf(stderr, "fork() err\n");
-			return -1;
+			exit(1);
 		}
 	}
 
@@ -317,7 +350,7 @@ int main(int argc, char* argv[]){
 		}
 		else{ // fork err
 			fprintf(stderr, "fork() err\n");
-			return -1;
+			exit(1);
 		}
 	}
 
@@ -333,7 +366,7 @@ int main(int argc, char* argv[]){
 		}
 		else{ // fork err
 			fprintf(stderr, "fork() err\n");
-			return -1;
+			exit(1);
 		}
 	}
 
@@ -349,27 +382,49 @@ int main(int argc, char* argv[]){
 		}
 		else{ // fork err
 			fprintf(stderr, "fork() err\n");
-			exit(-1);
+			exit(1);
 		}
 	}
 
+	// option o:
+	if(opt.is_o > 0){
+		if((rst = dup2(fdout, STDOUT_FILENO)) < 0){ // check dup2() err
+			fprintf(stderr, "dup2() err\n");
+			exit(1);
+		}
+
+		if((rst = dup2(fderr, STDERR_FILENO)) < 0){ // check dup2() err
+			fprintf(stderr, "dup2() err\n");
+			exit(1);
+		}
+
+		close(fd);
+
+	}
+
 	printf(">: ssu_lsproc terminated. :<\n");
+	exit(0);
 }
 
 int optionS(void){
+	char *path = "/proc/"
 	uid_t uid;
+	DIR *dp;
+	
 	uid = getuid();
 
 	printf("uid : %d\n", uid);
+
+	return 0;
 }
 
 int optionF(pid_t pid){
 	int len, rst, p, d;
 	char path1[10];
-	char path2[21]="/proc/";
+	char path2[50]="/proc/";
 	char *fd = "/fd";
 	char *nPath;
-	char linkfile[30];
+	char linkfile[50];
 	DIR *dp;
 	struct dirent *dirp;
 	struct stat statbuf;
@@ -417,8 +472,8 @@ int optionF(pid_t pid){
 		}
 		
 		if(S_ISLNK(statbuf.st_mode) != 0){
-			memset(linkfile, 0, 30);
-			if((rst = readlink(nPath, linkfile, 30)) < 0){ //check readlink() err
+			memset(linkfile, 0, 50);
+			if((rst = readlink(nPath, linkfile, 50)) < 0){ //check readlink() err
 				fprintf(stderr, "readlink() err\n");
 				continue;	
 			}
@@ -435,11 +490,11 @@ int optionF(pid_t pid){
 int optionT(pid_t pid){
 	int i, len, rst;
 	char path1[10];
-	char path2[26] = "/proc/";
+	char path2[50] = "/proc/";
 	char *status = "/status";
 	FILE *fp;
-	char str1[100];
-	char str2[100];
+	char str1[1000];
+	char str2[1000];
 	char *Name = "Name:";
 	char *State = "State:";
 	char *Tgid = "Tgid:";
@@ -572,7 +627,7 @@ int optionC(pid_t pid){
 	int i, len, rst;
 	char c;
 	char path1[10];
-	char path2[30]="/proc/";
+	char path2[50]="/proc/";
 	char *cmdline = "/cmdline";
 
 	FILE *fp;
@@ -619,10 +674,10 @@ int optionC(pid_t pid){
 int optionN(pid_t pid){
 	int len, rst;
 	char path1[10];
-	char path2[21]="/proc/";
+	char path2[50]="/proc/";
 	char *io = "/io";
-	char str1[30];
-	char str2[30];
+	char str1[100];
+	char str2[100];
 	char *rchar = "rchar:";
 	char *wchar = "wchar:";
 	char *syscr = "syscr:";
@@ -698,9 +753,8 @@ int optionN(pid_t pid){
 int optionM(pid_t pid, int keyNum, char **key){
 	int i, len, rst, print, num;
 	char path1[10];
-	char path2[30]="/proc/";
+	char path2[50]="/proc/";
 	char *environ = "/environ";
-	char *nPath;
 	char c;
 	char str[1000];
 	char *k[16];
@@ -855,7 +909,7 @@ int optionE(void){
 	char *path = "/proc/filesystems";
 	FILE *fp;
 	char *nodev = "nodev";
-	char str[20];
+	char str[50];
 	int i=0, rst;
 
 	if((rst=access(path, F_OK)) < 0){	// not exist
@@ -890,7 +944,7 @@ int optionE(void){
 }
 
 int optionL(void){
-	int i, rst;
+	int rst;
 	char *path = "/proc/uptime";
 	FILE *fp;
 	double worktime, idletime;
@@ -978,7 +1032,7 @@ void init_lsproc(struct lsproc_opt *opt){
 
 int parsing_lsproc(int argc, char* argv[], struct lsproc_opt * opt){
 	// parsing
-	int i, j, k, n;
+	int i, n;
 	char befoOpt = '\0';
 
 	for(i=1; i<argc; i++){
@@ -1096,14 +1150,19 @@ int parsing_lsproc(int argc, char* argv[], struct lsproc_opt * opt){
 						n++;
 					}
 					i--;
-					opt->is_s = 0;
+					opt->is_s = n;
 					befoOpt = 's';
 					break;
 				case 'o':
 					if(opt->is_o >= 0) return -1;
-					if(i+1 < argc)
+					if(i+1 < argc){
 						opt->o_fname = argv[++i];
-					opt->is_o = 0;
+						n++;
+					}
+					if(n == 0){
+						return -1;
+					}
+					opt->is_o = 1;
 					befoOpt = 'o';
 					break;
 				default:
