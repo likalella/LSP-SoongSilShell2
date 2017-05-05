@@ -3,17 +3,17 @@
 
 struct lsproc_opt{
 	int is_f;
-	pid_t f_pid[16];
+	pid_t f_pid[1001];
 	int is_t;
-	pid_t t_pid[16];
+	pid_t t_pid[1001];
 	int is_c;
-	pid_t c_pid[16];
+	pid_t c_pid[1001];
 	int is_n;
-	pid_t n_pid[16];
+	pid_t n_pid[1001];
 	int is_m;
-	pid_t m_pid[16];
+	pid_t m_pid[1001];
 	int is_k;
-	char *key[16];
+	char *key[1001];
 	int is_w;
 	int is_e;
 	int is_l;
@@ -41,5 +41,6 @@ int optionW(void);
 int optionE(void);
 int optionL(void);
 int optionV(void);
+int optionS(void);
 
 #endif
