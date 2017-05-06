@@ -41,6 +41,6 @@ int optionW(void);
 int optionE(void);
 int optionL(void);
 int optionV(void);
-int optionS(void);
+int optionS(struct lsproc_opt *);
 
 #endif
