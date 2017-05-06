@@ -4,6 +4,7 @@
 void ssu_shell();
 void ssu_lsproc(int argc, char *argv[]);
 void ssu_itoa(int, char *);
+int ssu_isnum(char *);
 
 struct ssu_function{
 	char *cmd;
