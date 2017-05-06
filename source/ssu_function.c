@@ -4,7 +4,7 @@
 #include <string.h>
 #include "ssu_function.h"
 
-void ssu_atoi(int n, char *str){
+void ssu_itoa(int n, char *str){
 	int i = 0, deg = 1, cnt=0;
 	while(1){
 		if(n/deg > 0)

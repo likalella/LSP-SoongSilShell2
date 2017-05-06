@@ -3,7 +3,7 @@
 
 void ssu_shell();
 void ssu_lsproc(int argc, char *argv[]);
-void ssu_atoi(int, char *);
+void ssu_itoa(int, char *);
 
 struct ssu_function{
 	char *cmd;
