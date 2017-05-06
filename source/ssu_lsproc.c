@@ -407,7 +407,7 @@ int main(int argc, char* argv[]){
 }
 
 int optionS(struct lsproc_opt *opt){
-	int i, j, p=5, d, n=0, tmp;	
+	int i, j, p=5, d, n=0, tmp, rst;;	
 	char *path = "/proc";
 	char *nPath;
 	int pid[500];
@@ -425,12 +425,7 @@ int optionS(struct lsproc_opt *opt){
 
 	while((dirp = readdir(dp)) != NULL){
 		d = strlen(dirp->d_name);
-		for(i=0; i<d; i++){
-			if(!isdigit(dirp->d_name[i]))
-				break;	
-		}
-		
-		if(i != d)
+		if((rst = ssu_isnum(dirp->d_name)) < 0)
 			continue;
 		else{
 			nPath = (char *)malloc(p+d+2);
@@ -1105,7 +1100,7 @@ void init_lsproc(struct lsproc_opt *opt){
 
 int parsing_lsproc(int argc, char* argv[], struct lsproc_opt * opt){
 	// parsing
-	int i, n;
+	int i, n, rst;
 	char befoOpt = '\0';
 
 	for(i=1; i<argc; i++){
@@ -1114,7 +1109,7 @@ int parsing_lsproc(int argc, char* argv[], struct lsproc_opt * opt){
 			switch(argv[i][1]){
 				case 'f':
 					if(opt->is_f >= 0) return -1;
-					while(++i < argc && argv[i][0] != '-' && isdigit(argv[i][0])){
+					while(++i < argc && argv[i][0] != '-' && ((rst = ssu_isnum(argv[i])) > 0)){
 						opt->f_pid[n] = atoi(argv[i]);
 						n++;
 					}
@@ -1124,7 +1119,7 @@ int parsing_lsproc(int argc, char* argv[], struct lsproc_opt * opt){
 					break;
 				case 't':
 					if(opt->is_t >= 0) return -1;
-					while(++i < argc && argv[i][0] != '-' && isdigit(argv[i][0])){
+					while(++i < argc && argv[i][0] != '-' && ((rst = ssu_isnum(argv[i])) > 0)){
 						opt->t_pid[n] = atoi(argv[i]);
 						n++;
 					}
@@ -1134,7 +1129,7 @@ int parsing_lsproc(int argc, char* argv[], struct lsproc_opt * opt){
 					break;
 				case 'c':
 					if(opt->is_c >= 0) return -1;
-					while(++i < argc && argv[i][0] != '-' && isdigit(argv[i][0])){
+					while(++i < argc && argv[i][0] != '-' && ((rst = ssu_isnum(argv[i])) > 0)){
 						opt->c_pid[n] = atoi(argv[i]);
 						n++;
 					}
@@ -1144,7 +1139,7 @@ int parsing_lsproc(int argc, char* argv[], struct lsproc_opt * opt){
 					break;
 				case 'n':
 					if(opt->is_n >= 0) return -1;
-					while(++i < argc && argv[i][0] != '-' && isdigit(argv[i][0])){
+					while(++i < argc && argv[i][0] != '-' && ((rst = ssu_isnum(argv[i])) > 0)){
 						opt->n_pid[n] = atoi(argv[i]);
 						n++;
 					}
@@ -1154,7 +1149,7 @@ int parsing_lsproc(int argc, char* argv[], struct lsproc_opt * opt){
 					break;
 				case 'm':
 					if(opt->is_m >= 0) return -1;
-					while(++i < argc && argv[i][0] != '-' && isdigit(argv[i][0])){
+					while(++i < argc && argv[i][0] != '-' && ((rst = ssu_isnum(argv[i])) > 0)){
 						opt->m_pid[n] = atoi(argv[i]);
 						n++;
 					}
