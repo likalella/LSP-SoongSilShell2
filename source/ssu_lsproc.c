@@ -406,86 +406,6 @@ int main(int argc, char* argv[]){
 	exit(0);
 }
 
-int optionS(struct lsproc_opt *opt){
-	int i, j, p=5, d, n=0, tmp, rst;;	
-	char *path = "/proc";
-	char *nPath;
-	int pid[500];
-	uid_t myuid;
-	DIR *dp;
-	struct dirent *dirp;
-	struct stat statbuf;
-	
-	myuid = getuid();
-
-	if((dp = opendir(path)) == NULL){	// check opendir() err
-		fprintf(stderr, "opendir() err\n");	
-		return 1;	
-	}
-
-	while((dirp = readdir(dp)) != NULL){
-		d = strlen(dirp->d_name);
-		if((rst = ssu_isnum(dirp->d_name)) < 0)
-			continue;
-		else{
-			nPath = (char *)malloc(p+d+2);
-			memset(nPath, '\0', p+d+2);
-			strcpy(nPath, path);
-			nPath[p] = '/';
-			strcpy(&nPath[p+1], dirp->d_name);
-			nPath[p+d+1] = '\0';
-			
-			if(stat(nPath, &statbuf) < 0){	// check lstat() err
-				fprintf(stderr, "lstat() err\n");
-				free(nPath);
-				return 1;		
-			}
-
-			if(statbuf.st_uid == myuid){
-				pid[n++] = atoi(dirp->d_name);
-			}
-			free(nPath);
-		}
-	}
-	closedir(dp);
-
-	for(i=0; i<n; i++){
-		for(j=1; j<n; j++){
-			if(pid[j-1] > pid[j]){
-				tmp = pid[j];
-				pid[j] = pid[j-1];
-				pid[j-1] = tmp;
-			}
-		}
-	}
-
-	for(i=0; i<n; i++){
-		if(opt->s_filedes > 0){
-			printf("## Attributd : FILEDES, Target Process ID : %d ##\n", pid[i]);
-			optionF(pid[i]);
-		}
-		if(opt->s_cmdline > 0){
-			printf("## Attributd : CMDLINE, Target Process ID : %d ##\n", pid[i]);
-			optionC(pid[i]);
-		}
-		if(opt->s_io > 0){
-			printf("## Attributd : IO, Target Process ID : %d ##\n", pid[i]);
-			optionN(pid[i]);
-		}
-		if(opt->s_stat > 0){
-			printf("## Attributd : STAT, Target Process ID : %d ##\n", pid[i]);
-			optionT(pid[i]);
-		}
-		if(opt->s_environ > 0){
-			printf("## ENVIRON : CMDLINE, Target Process ID : %d ##\n", pid[i]);
-			optionM(pid[i], 0, NULL);
-		}
-
-	}
-
-	return 0;
-}
-
 int optionF(pid_t pid){
 	int len, rst, p, d;
 	char path1[10];
@@ -1065,6 +985,87 @@ int optionV(void){
 
 	return 0;
 }
+
+int optionS(struct lsproc_opt *opt){
+	int i, j, p=5, d, n=0, tmp, rst;;	
+	char *path = "/proc";
+	char *nPath;
+	int pid[500];
+	uid_t myuid;
+	DIR *dp;
+	struct dirent *dirp;
+	struct stat statbuf;
+	
+	myuid = getuid();
+
+	if((dp = opendir(path)) == NULL){	// check opendir() err
+		fprintf(stderr, "opendir() err\n");	
+		return 1;	
+	}
+
+	while((dirp = readdir(dp)) != NULL){
+		d = strlen(dirp->d_name);
+		if((rst = ssu_isnum(dirp->d_name)) < 0)
+			continue;
+		else{
+			nPath = (char *)malloc(p+d+2);
+			memset(nPath, '\0', p+d+2);
+			strcpy(nPath, path);
+			nPath[p] = '/';
+			strcpy(&nPath[p+1], dirp->d_name);
+			nPath[p+d+1] = '\0';
+			
+			if(stat(nPath, &statbuf) < 0){	// check lstat() err
+				fprintf(stderr, "lstat() err\n");
+				free(nPath);
+				return 1;		
+			}
+
+			if(statbuf.st_uid == myuid){
+				pid[n++] = atoi(dirp->d_name);
+			}
+			free(nPath);
+		}
+	}
+	closedir(dp);
+
+	for(i=0; i<n; i++){
+		for(j=1; j<n; j++){
+			if(pid[j-1] > pid[j]){
+				tmp = pid[j];
+				pid[j] = pid[j-1];
+				pid[j-1] = tmp;
+			}
+		}
+	}
+
+	for(i=0; i<n; i++){
+		if(opt->s_filedes > 0){
+			printf("## Attributd : FILEDES, Target Process ID : %d ##\n", pid[i]);
+			optionF(pid[i]);
+		}
+		if(opt->s_cmdline > 0){
+			printf("## Attributd : CMDLINE, Target Process ID : %d ##\n", pid[i]);
+			optionC(pid[i]);
+		}
+		if(opt->s_io > 0){
+			printf("## Attributd : IO, Target Process ID : %d ##\n", pid[i]);
+			optionN(pid[i]);
+		}
+		if(opt->s_stat > 0){
+			printf("## Attributd : STAT, Target Process ID : %d ##\n", pid[i]);
+			optionT(pid[i]);
+		}
+		if(opt->s_environ > 0){
+			printf("## ENVIRON : CMDLINE, Target Process ID : %d ##\n", pid[i]);
+			optionM(pid[i], 0, NULL);
+		}
+
+	}
+
+	return 0;
+}
+
 
 void init_lsproc(struct lsproc_opt *opt){
 	// init struct lsproc_opt
