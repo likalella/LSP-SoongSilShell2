@@ -96,7 +96,7 @@ int main(int argc, char* argv[]){
 			}
 
 			for(i=0; i<opt.is_f && i<16; i++){
-				if(opt.is_f > 1)
+				if(opt.is_f > 1 || opt.optNum>0)
 					printf("([/proc/%d/fd])\n", opt.f_pid[i]);
 				rst = optionF(opt.f_pid[i]);
 			}
@@ -140,7 +140,7 @@ int main(int argc, char* argv[]){
 			}
 
 			for(i=0; i<opt.is_t && i<16; i++){
-				if(opt.is_t > 1)
+				if(opt.is_t > 1 || opt.optNum>0)
 					printf("([/proc/%d/status])\n", opt.t_pid[i]);
 				rst = optionT(opt.t_pid[i]);
 			}
@@ -184,7 +184,7 @@ int main(int argc, char* argv[]){
 			}
 
 			for(i=0; i<opt.is_c && i<16; i++){
-				if(opt.is_c > 1)
+				if(opt.is_c > 1 || opt.optNum>0)
 					printf("([/proc/%d/cmdline])\n", opt.c_pid[i]);
 				rst = optionC(opt.c_pid[i]);
 			}
@@ -228,7 +228,7 @@ int main(int argc, char* argv[]){
 			}
 
 			for(i=0; i<opt.is_n && i<16; i++){
-				if(opt.is_n > 1)
+				if(opt.is_n > 1 || opt.optNum>0)
 					printf("([/proc/%d/io])\n", opt.n_pid[i]);
 				rst = optionN(opt.n_pid[i]);
 			}
@@ -293,7 +293,7 @@ int main(int argc, char* argv[]){
 			}
 
 			for(i=0; i<opt.is_m && i<16; i++){
-				if(opt.is_m > 1)
+				if(opt.is_m > 1 || opt.optNum>0)
 					printf("([/proc/%d/environ])\n", opt.m_pid[i]);
 				rst = optionM(opt.m_pid[i], opt.is_k, opt.key);
 			}
@@ -313,6 +313,8 @@ int main(int argc, char* argv[]){
 			wait(&status);
 		}
 		else if(pid == 0){ // child
+			if(opt.optNum>0)
+				printf("([/proc/interrupts])\n");
 			rst = optionW();
 			exit(0);
 		}
@@ -329,6 +331,8 @@ int main(int argc, char* argv[]){
 			wait(&status);
 		}
 		else if(pid == 0){ // child
+			if(opt.optNum>0)
+				printf("([/proc/filesystem])\n");
 			rst = optionE();
 			exit(0);
 		}
@@ -345,6 +349,8 @@ int main(int argc, char* argv[]){
 			wait(&status);
 		}
 		else if(pid == 0){ // child
+			if(opt.optNum>0)
+				printf("([/proc/uptime])\n");
 			rst = optionL();
 			exit(0);
 		}
@@ -361,6 +367,8 @@ int main(int argc, char* argv[]){
 			wait(&status);
 		}
 		else if(pid == 0){ // child
+			if(opt.optNum > 0)
+				printf("([/proc/version])\n");
 			rst = optionV();
 			exit(0);
 		}
@@ -1041,23 +1049,33 @@ int optionS(struct lsproc_opt *opt){
 
 	for(i=0; i<n; i++){
 		if(opt->s_filedes > 0){
-			printf("## Attributd : FILEDES, Target Process ID : %d ##\n", pid[i]);
+			if(opt->optNum>0)
+				printf("([/proc/%d/fd])\n", pid[i]);
+			printf("## Attributed : FILEDES, Target Process ID : %d ##\n", pid[i]);
 			optionF(pid[i]);
 		}
 		if(opt->s_cmdline > 0){
-			printf("## Attributd : CMDLINE, Target Process ID : %d ##\n", pid[i]);
+			if(opt->optNum>0)
+				printf("([/proc/%d/cmdline])\n", pid[i]);
+			printf("## Attributed : CMDLINE, Target Process ID : %d ##\n", pid[i]);
 			optionC(pid[i]);
 		}
 		if(opt->s_io > 0){
-			printf("## Attributd : IO, Target Process ID : %d ##\n", pid[i]);
+			if(opt->optNum>0)
+				printf("([/proc/%d/io])\n", pid[i]);
+			printf("## Attributed : IO, Target Process ID : %d ##\n", pid[i]);
 			optionN(pid[i]);
 		}
 		if(opt->s_stat > 0){
-			printf("## Attributd : STAT, Target Process ID : %d ##\n", pid[i]);
+			if(opt->optNum>0)
+				printf("([/proc/%d/stat])\n", pid[i]);
+			printf("## Attributed : STAT, Target Process ID : %d ##\n", pid[i]);
 			optionT(pid[i]);
 		}
 		if(opt->s_environ > 0){
-			printf("## ENVIRON : CMDLINE, Target Process ID : %d ##\n", pid[i]);
+			if(opt->optNum>0)
+				printf("([/proc/%d/environ])\n", pid[i]);
+			printf("## Attributed : ENVIRON, Target Process ID : %d ##\n", pid[i]);
 			optionM(pid[i], 0, NULL);
 		}
 
@@ -1070,6 +1088,7 @@ int optionS(struct lsproc_opt *opt){
 void init_lsproc(struct lsproc_opt *opt){
 	// init struct lsproc_opt
 	int i;
+	opt->optNum=0;
 	opt->is_f=-1;
 	opt->is_t=-1;
 	opt->is_c=-1;
@@ -1117,6 +1136,7 @@ int parsing_lsproc(int argc, char* argv[], struct lsproc_opt * opt){
 					opt->is_f = n;
 					i--;
 					befoOpt = 'f';
+					opt->optNum++;
 					break;
 				case 't':
 					if(opt->is_t >= 0) return -1;
@@ -1127,6 +1147,7 @@ int parsing_lsproc(int argc, char* argv[], struct lsproc_opt * opt){
 					opt->is_t = n;
 					i--;
 					befoOpt = 't';
+					opt->optNum++;
 					break;
 				case 'c':
 					if(opt->is_c >= 0) return -1;
@@ -1137,6 +1158,7 @@ int parsing_lsproc(int argc, char* argv[], struct lsproc_opt * opt){
 					opt->is_c = n;
 					i--;
 					befoOpt = 'c';
+					opt->optNum++;
 					break;
 				case 'n':
 					if(opt->is_n >= 0) return -1;
@@ -1147,6 +1169,7 @@ int parsing_lsproc(int argc, char* argv[], struct lsproc_opt * opt){
 					opt->is_n = n;
 					i--;
 					befoOpt = 'n';
+					opt->optNum++;
 					break;
 				case 'm':
 					if(opt->is_m >= 0) return -1;
@@ -1157,6 +1180,7 @@ int parsing_lsproc(int argc, char* argv[], struct lsproc_opt * opt){
 					opt->is_m = n;
 					i--;
 					befoOpt = 'm';
+					opt->optNum++;
 					break;
 				case 'k':
 					if(befoOpt != 'm') return -1;
@@ -1173,21 +1197,25 @@ int parsing_lsproc(int argc, char* argv[], struct lsproc_opt * opt){
 					if(opt->is_w >= 0) return -1;
 					opt->is_w = 0;
 					befoOpt = 'w';
+					opt->optNum++;
 					break;
 				case 'e':
 					if(opt->is_e >= 0) return -1;
 					opt->is_e = 0;
 					befoOpt = 'e';
+					opt->optNum++;
 					break;
 				case 'l':
 					if(opt->is_l >= 0) return -1;
 					opt->is_l = 0;
 					befoOpt = 'l';
+					opt->optNum++;
 					break;
 				case 'v':
 					if(opt->is_v >= 0) return -1;
 					opt->is_v = 0;
 					befoOpt = 'v';
+					opt->optNum++;
 					break;
 				case 'r':
 					if(opt->is_r >= 0) return -1;
@@ -1196,7 +1224,7 @@ int parsing_lsproc(int argc, char* argv[], struct lsproc_opt * opt){
 					break;
 				case 's':
 					if(opt->is_s >= 0) return -1;
-					while(++i<argc && argv[i]){
+					while(++i<argc && argv[i][0] != '-'){
 						if(n > 4) return -1;
 						if(strcmp(argv[i], "FILEDES") == 0){
 							opt->s_filedes = 1;
@@ -1221,6 +1249,7 @@ int parsing_lsproc(int argc, char* argv[], struct lsproc_opt * opt){
 					i--;
 					opt->is_s = n;
 					befoOpt = 's';
+					opt->optNum++;
 					break;
 				case 'o':
 					if(opt->is_o >= 0) return -1;

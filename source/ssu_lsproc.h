@@ -2,6 +2,7 @@
 #define SSU_LSPROC_H
 
 struct lsproc_opt{
+	int optNum;
 	int is_f;
 	pid_t f_pid[1001];
 	int is_t;
