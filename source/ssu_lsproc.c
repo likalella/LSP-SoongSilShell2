@@ -889,12 +889,19 @@ int optionW(void){
 			for(i=0; i<cpuNum; i++){
 				str2[0] = '\0';
 				fscanf(fp, "%s", str2);
+				if(!isdigit(str2[0])){
+					len = strlen(str2);
+					fseek(fp, -1*len, SEEK_CUR);
+					break;
+				}
+				
 				input = atoi(str2);
 				avg += (double)input;
 			}
-			avg = avg / (double)cpuNum;
+			avg = avg / (double)i;
 			str2[0] = '\0';
-			fscanf(fp, "%[^\n]s", str2);
+			if(i == cpuNum)
+				fscanf(fp, "%[^\n]s", str2);
 			printf("%15.3f : <%s> %s\n", avg, str1, str2);
 		}
 	}
@@ -1088,7 +1095,7 @@ int optionS(struct lsproc_opt *opt){
 void init_lsproc(struct lsproc_opt *opt){
 	// init struct lsproc_opt
 	int i;
-	opt->optNum=0;
+	opt->optNum=-1;
 	opt->is_f=-1;
 	opt->is_t=-1;
 	opt->is_c=-1;
